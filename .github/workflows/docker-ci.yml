@@ -31,15 +31,22 @@ jobs:
             -p 127.0.0.1:8000:8000 \
             cloudtech-helpdesk:ci
 
-      - name: Test health endpoint
+    - name: Test health endpoint
         run: |
-          curl --fail --silent --show-error \
-            --retry 10 --retry-connrefused --retry-delay 2 \
-            --max-time 5 \
-            http://127.0.0.1:8000/health \
-            -o health.json
-          python3 -c 'import json; assert json.load(open("health.json")) == {"status": "healthy"}'
-          echo "Health check passed!"
+          for attempt in $(seq 1 15); do
+            if curl --fail --silent --show-error \
+              --max-time 5 \
+              http://127.0.0.1:8000/health \
+              -o health.json; then
+              python3 -c 'import json; assert json.load(open("health.json")) == {"status": "healthy"}'
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Waiting for API: attempt $attempt of 15"
+            sleep 2
+          done
+          echo "API did not become ready"
+          exit 1"
 
       - name: Show container logs
         if: always()
